@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  docker:
+    environment:
+      DOCKER_TLS_CERTDIR: ""
+    image: "docker:dind"
+    networks:
+      "opendevin":
+        aliases:
+          - "docker"
+    privileged: true
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+    # env_file:
+    #   - .env
+    depends_on:
+      - backend
+        # condition: service_healthy TODO: Wait for the backend service to be avaiablle
+    ports:
+      - "3001:80"
+    volumes:
+      - ./frontend:/app
+    restart:
+      on-failure
+    hostname: frontend
+    environment:
+      - REACT_APP_BACKEND_URL=http://localhost:8080
+  backend:
+    #command: sh -c 'while [ 1 ]; do sleep 1000; done'
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    depends_on:
+      - "docker"
+    environment:
+      DOCKER_HOST: "tcp://docker:2375"
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./workspace:/app/workspace
+      - ./opendevin:/app/opendevin
+    restart:
+      on-failure
+    hostname: backend
+    networks:
+      "opendevin": {}
+    # healthcheck:  TODO: Wait for the backend service to be available
+    #   test: ["CMD", "curl", "-f", "http://localhost:3000/ws"]
+    #   interval: 20s
+    #   timeout: 20s
+    #   retries: 5
+
+networks:
+  "opendevin":
+    name: "opendevin"
